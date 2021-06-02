@@ -1,2 +1,2 @@
-fastapi[all]
-gtts
+aiohttp
+gTTS

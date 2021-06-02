@@ -1,73 +1,47 @@
-from functools import wraps
+from os import environ
 from io import BytesIO
 
-from fastapi import Body, FastAPI, HTTPException
-from fastapi.responses import RedirectResponse, StreamingResponse
-from gtts import gTTS, gTTSError
-from gtts.lang import tts_langs
+from aiohttp import web
+from gtts import gTTS, gTTSError, lang
 
-app = FastAPI()
-tts_langs = tts_langs()
 
-def verify_lang(func):
-    @wraps(func)
-    def replace_func(text, lang="en"):
-        if lang not in tts_langs:
-            raise HTTPException(
-                detail=f"{lang} is not a valid language code.",
-                status_code=400
-                )
+port = int(environ.setdefault("EASY_GTTS_API_PORT", "8080"))
+host = environ.setdefault("EASY_GTTS_API_HOST", "0.0.0.0")
 
-        return func(text, lang)
 
-    return replace_func
+languages = lang.tts_langs()
+routes = web.RouteTableDef()
 
-@app.get("/")
-async def root():
-    return RedirectResponse("/docs")
 
-@verify_lang
-@app.get("/tts")
-def tts(text, lang="en"):
-    mp3 = BytesIO()
-    gTTS(text=text, lang=lang).write_to_fp(mp3)
-    mp3.seek(0)
+@routes.get("/tts")
+async def tts_route(request: web.Request):
+    text = request.query.get("text")
+    language = request.query.get("language", "en")
 
-    return StreamingResponse(mp3, media_type="audio/mp3")
+    if language not in languages:
+        raise web.HTTPBadRequest(reason=f"{language} is not a valid language.")
 
-@verify_lang
-@app.get("/v1/tts")
-def v1_tts(text, lang="en"):
-    mp3 = BytesIO()
+    buffer = BytesIO()
+
     try:
-        gTTS(text=text, lang=lang).write_to_fp(mp3)
+        gTTS(text=text, lang=language).write_to_fp(buffer)
     except (AssertionError, ValueError, RuntimeError) as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
-
-    except gTTSError as e:
+        raise web.HTTPBadRequest(reason=str(e))
+    except gTTSError as e:  # Likely means that something went wrong on our side or Google's side.
         if e.rsp is not None:
-            headers = e.rsp.headers
-            headers.pop("Content-Length", None)
-
-            raise HTTPException(
-                status_code=e.rsp.status_code,
-                detail=e.rsp.content.decode(),
-                headers=headers
-                )
-
+            raise web.HTTPInternalServerError(reason=e.rsp.content.decode())
         raise
 
-    mp3.seek(0)
-    return StreamingResponse(mp3, media_type="audio/mp3")
+    stream_response = web.StreamResponse()
+    stream_response.content_type = "audio/mp3"
+    await stream_response.prepare(request)
+    await stream_response.write(buffer.getvalue())
+    await stream_response.write_eof()
 
-@app.post("/v1/tts")
-def v1_tts_post(text: str = Body(...), lang: str = Body(default="en")):
-    return v1_tts(text, lang)
+    return stream_response
 
-@app.get("/langs")
-@app.get("/v1/langs")
-async def get_langs():
-    return tts_langs
+
+if __name__ == "__main__":
+    app = web.Application()
+    app.add_routes(routes)
+    web.run_app(app, host=host, port=port)
