@@ -1,6 +1,6 @@
 # easy-gTTS-API
 
-An easy to use gTTS middleman using `aiohttp`.
+An easy to use [gTTS](https://cloud.google.com/text-to-speech) middleman built using `aiohttp`.
 
 ## Hosting
 
@@ -13,14 +13,6 @@ Environment Variables:
 
 ## API
 
-### GET `/v1/synthesize`
-
-Returns TTS Speech from https://texttospeech.googleapis.com/v1/text:synthesize.
-
-Parameters:
-
-* `?text=`: Text to be converted into speech.
-
 ### GET `/v1beta1/synthesize`
 
 Returns TTS Speech from https://texttospeech.googleapis.com/v1beta1/text:synthesize.
@@ -28,3 +20,14 @@ Returns TTS Speech from https://texttospeech.googleapis.com/v1beta1/text:synthes
 Parameters:
 
 * `?text=`: Text to be converted into speech.
+* `?lang=en-US`: Language of the text to be converted into speech.
+* `?voice=en-US-Wavenet-D`: Voice that will speak the text.
+* `?encoding=MP3`: Audio encoding taht
+
+### GET `/v1beta1/voices`
+
+Returns a list of voices that can be used for synthesis from https://texttospeech.googleapis.com/v1beta1/voices.
+
+Parameters:
+
+* `?languageCode=None`: The language code to be searched.

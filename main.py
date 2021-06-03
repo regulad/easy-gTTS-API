@@ -1,6 +1,6 @@
 import os
 
-from util.app import CustomApp
+from utils.app import CustomApp
 
 app = CustomApp()
 
