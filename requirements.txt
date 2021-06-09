@@ -1,2 +1,2 @@
 aiohttp
-git+https://github.com/regulad/asyncgTTS.git
+async-gTTS
